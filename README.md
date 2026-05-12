@@ -12,6 +12,7 @@ A minimal production-style backend service for unified model capability invocati
 - `elapsed_ms` timing in every success and failure response
 - One structured log line per request with capability, provider, status, error code, and elapsed time
 - Pytest coverage for API, capability validation, mock provider, and DeepSeek provider error handling
+- Ruff linting and GitHub Actions CI for repeatable review
 
 ## Requirements
 
@@ -174,8 +175,12 @@ Default test suite:
 
 ```bash
 source .venv/bin/activate
+ruff check .
 pytest -q
 ```
+
+Default tests use the deterministic mock provider. The real DeepSeek smoke test is intentionally skipped unless
+explicitly enabled, so reviewers can verify the project without any external credentials.
 
 Optional real DeepSeek smoke test:
 
@@ -185,7 +190,7 @@ export DEEPSEEK_API_KEY="your-deepseek-api-key"
 pytest -m integration -q
 ```
 
-The integration test is skipped by default so reviewers can run the project without external credentials.
+GitHub Actions also runs `ruff check .` and `pytest -q` on every push and pull request.
 
 ## Configuration
 
@@ -211,3 +216,5 @@ Environment variables:
 - The service intentionally avoids database, auth, queues, streaming, and frontend code to keep the assignment focused and runnable.
 - Secrets are read only from environment variables.
 - Logs never include full request input or API keys.
+- DeepSeek outputs are normalized by the service before returning: summaries are clamped to the requested length and
+  empty keyword responses become `PROVIDER_ERROR`.

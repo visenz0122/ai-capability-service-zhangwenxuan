@@ -4,6 +4,21 @@ from app.config import Settings
 from app.providers import DeepSeekProvider, MockProvider, ProviderError, clean_keyword_response
 
 
+class _FakeMessage:
+    def __init__(self, content):
+        self.content = content
+
+
+class _FakeChoice:
+    def __init__(self, content):
+        self.message = _FakeMessage(content)
+
+
+class _FakeCompletion:
+    def __init__(self, content):
+        self.choices = [_FakeChoice(content)]
+
+
 def test_mock_provider_summarizes_deterministically():
     provider = MockProvider()
 
@@ -51,3 +66,33 @@ def test_deepseek_provider_maps_timeout(monkeypatch):
         provider.summarize("hello world", max_length=40)
 
     assert exc.value.code == "PROVIDER_TIMEOUT"
+
+
+def test_deepseek_provider_clamps_summary_to_requested_max_length(monkeypatch):
+    settings = Settings(model_provider="deepseek", deepseek_api_key="test-key")
+    provider = DeepSeekProvider(settings)
+
+    monkeypatch.setattr(
+        provider,
+        "_create_completion",
+        lambda *args, **kwargs: _FakeCompletion(
+            "This response from the model is intentionally much longer than the requested budget."
+        ),
+    )
+
+    result = provider.summarize("hello world", max_length=32)
+
+    assert len(result) <= 32
+    assert result.endswith("...")
+
+
+def test_deepseek_provider_rejects_empty_keyword_parse(monkeypatch):
+    settings = Settings(model_provider="deepseek", deepseek_api_key="test-key")
+    provider = DeepSeekProvider(settings)
+
+    monkeypatch.setattr(provider, "_create_completion", lambda *args, **kwargs: _FakeCompletion(" , ; \n"))
+
+    with pytest.raises(ProviderError) as exc:
+        provider.extract_keywords("hello world", limit=3)
+
+    assert exc.value.code == "PROVIDER_ERROR"

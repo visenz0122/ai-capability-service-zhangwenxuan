@@ -22,7 +22,6 @@ from app.schemas import (
     SuccessResponse,
 )
 
-
 settings = load_settings()
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO), format="%(message)s")
 logger = logging.getLogger("capability-service")

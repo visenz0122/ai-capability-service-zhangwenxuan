@@ -1,7 +1,8 @@
+import logging
+
 from fastapi.testclient import TestClient
 
 from app.main import app
-
 
 client = TestClient(app)
 
@@ -95,3 +96,26 @@ def test_request_validation_errors_use_assignment_envelope():
     assert body["error"]["code"] == "INVALID_REQUEST"
     assert body["meta"]["capability"] == ""
     assert body["meta"]["request_id"]
+
+
+def test_success_request_logs_metadata_without_payload(caplog):
+    caplog.set_level(logging.INFO, logger="capability-service")
+    private_text = "Do not log this private customer text."
+
+    response = client.post(
+        "/v1/capabilities/run",
+        json={
+            "capability": "text_summary",
+            "input": {"text": private_text, "max_length": 30},
+            "request_id": "log-demo-001",
+        },
+    )
+
+    assert response.status_code == 200
+    log_lines = [record.getMessage() for record in caplog.records if record.name == "capability-service"]
+    assert any("request_id=log-demo-001" in line for line in log_lines)
+    assert any("capability=text_summary" in line for line in log_lines)
+    assert any("provider=mock" in line for line in log_lines)
+    assert any("ok=True" in line for line in log_lines)
+    assert any("elapsed_ms=" in line for line in log_lines)
+    assert all(private_text not in line for line in log_lines)

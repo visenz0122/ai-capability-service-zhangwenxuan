@@ -127,7 +127,7 @@ class DeepSeekProvider:
             ),
             max_tokens=160,
         )
-        return content.strip()
+        return compact_summary(content, max_length)
 
     def extract_keywords(self, text: str, limit: int) -> list[str]:
         if not self.settings.deepseek_api_key:
@@ -144,7 +144,10 @@ class DeepSeekProvider:
             user_prompt=f"Extract up to {limit} keywords from this text:\n{text}",
             max_tokens=120,
         )
-        return clean_keyword_response(content)[:limit]
+        keywords = clean_keyword_response(content)[:limit]
+        if not keywords:
+            raise ProviderError("PROVIDER_ERROR", "DeepSeek returned no usable keywords.")
+        return keywords
 
     def _chat(self, system_prompt: str, user_prompt: str, max_tokens: int) -> str:
         try:
